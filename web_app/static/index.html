@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Дата на видео</title>
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="hero">
+        <p class="eyebrow">Видео с камеры</p>
+        <h1>Наложение даты и времени</h1>
+      </header>
+
+      <section class="upload-panel">
+        <label class="file-drop" id="fileDrop" for="videoInput">
+          <input id="videoInput" name="video" type="file" accept="video/*" />
+          <span class="file-main">Выбрать видео</span>
+          <span class="file-sub" id="fileName">MP4, MOV или видео из галереи</span>
+        </label>
+      </section>
+
+      <section class="preview-section" aria-label="Превью видео">
+        <div class="video-stage" id="stage">
+          <video id="preview" playsinline muted controls></video>
+          <div class="preview-empty" id="previewEmpty">Видео не выбрано</div>
+          <div class="media-loader" id="mediaLoader">
+            <span></span>
+            <p>Готовлю превью...</p>
+          </div>
+        </div>
+      </section>
+
+      <form class="controls" id="processForm">
+        <div class="field-grid">
+          <label>
+            <span>Дата</span>
+            <input id="dateInput" name="date" type="date" value="2026-03-04" required />
+          </label>
+          <label>
+            <span>Время старта</span>
+            <input id="timeInput" name="time" type="time" value="11:50:47" step="1" required />
+          </label>
+        </div>
+
+        <label class="switch-row">
+          <input id="removeAudio" name="removeAudio" type="checkbox" checked />
+          <span class="switch-ui" aria-hidden="true"></span>
+          <span class="switch-text">Убрать звук</span>
+        </label>
+
+        <button class="primary-button" id="submitButton" type="submit">Сделать видео</button>
+        <p class="status" id="statusText" role="status"></p>
+      </form>
+
+      <section class="generation-panel" id="generationPanel" hidden aria-live="polite">
+        <div class="generation-head">
+          <strong id="progressTitle">Генерация видео</strong>
+          <span id="progressPercent">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <p id="progressText">Подготовка...</p>
+      </section>
+
+      <section class="result" id="resultPanel" hidden>
+        <video id="resultVideo" controls playsinline></video>
+        <a class="download-button" id="downloadLink" href="#" download>Скачать готовое видео</a>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
