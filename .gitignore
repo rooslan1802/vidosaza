@@ -28,3 +28,4 @@ release/
 dist/
 build/
 npm-debug.log*
+build-assets/icon.iconset/
