@@ -34,11 +34,19 @@ VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".avi", ".mkv"}
 JOBS: dict[str, dict] = {}
 
 
+def send_common_headers(handler: BaseHTTPRequestHandler) -> None:
+    handler.send_header("Access-Control-Allow-Origin", os.environ.get("CORS_ORIGIN", "*"))
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    handler.send_header("Access-Control-Allow-Headers", "Content-Type")
+    handler.send_header("Access-Control-Expose-Headers", "X-Filename")
+
+
 def json_response(handler: BaseHTTPRequestHandler, payload: dict, status: int = 200) -> None:
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Content-Length", str(len(body)))
+    send_common_headers(handler)
     handler.end_headers()
     handler.wfile.write(body)
 
@@ -58,6 +66,7 @@ def read_file_response(handler: BaseHTTPRequestHandler, path: Path, download_nam
     handler.send_header("Content-Length", str(path.stat().st_size))
     if download_name:
         handler.send_header("Content-Disposition", f'attachment; filename="{download_name}"')
+    send_common_headers(handler)
     handler.end_headers()
     with path.open("rb") as src:
         shutil.copyfileobj(src, handler.wfile)
@@ -73,6 +82,7 @@ def video_response(handler: BaseHTTPRequestHandler, path: Path, download_name: s
     handler.send_header("Content-Length", str(path.stat().st_size))
     handler.send_header("Content-Disposition", f'attachment; filename="{download_name}"')
     handler.send_header("X-Filename", download_name)
+    send_common_headers(handler)
     handler.end_headers()
     with path.open("rb") as src:
         shutil.copyfileobj(src, handler.wfile)
@@ -368,6 +378,11 @@ def run_job(job_id: str, input_path: Path, output_path: Path, date_text: str, st
 class VideoDateHandler(BaseHTTPRequestHandler):
     server_version = "VideoDateWeb/1.0"
 
+    def do_OPTIONS(self) -> None:
+        self.send_response(204)
+        send_common_headers(self)
+        self.end_headers()
+
     def do_GET(self) -> None:
         path = unquote(urlparse(self.path).path)
         if path == "/":
@@ -400,6 +415,9 @@ class VideoDateHandler(BaseHTTPRequestHandler):
 
         try:
             length = int(self.headers.get("Content-Length", "0"))
+            max_upload = int(os.environ.get("MAX_UPLOAD_MB", "2048")) * 1024 * 1024
+            if length > max_upload:
+                raise ValueError(f"Видео слишком большое. Максимум: {max_upload // 1024 // 1024} MB")
             content_type = self.headers.get("Content-Type", "")
             fields, files = parse_multipart(content_type, self.rfile.read(length))
             if "video" not in files:
@@ -453,7 +471,7 @@ def main() -> None:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     host = "0.0.0.0"
-    port = 8000
+    port = int(os.environ.get("PORT", "8000"))
     httpd = ThreadingHTTPServer((host, port), VideoDateHandler)
     print(f"Мобильный сайт запущен: http://localhost:{port}")
     print("Остановить: Ctrl+C")

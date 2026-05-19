@@ -1,0 +1,13 @@
+services:
+  video-date-app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      PORT: "8000"
+      MAX_UPLOAD_MB: "2048"
+      CORS_ORIGIN: "*"
+    volumes:
+      - ./web_app/uploads:/app/web_app/uploads
+      - ./web_app/outputs:/app/web_app/outputs
+    restart: unless-stopped
