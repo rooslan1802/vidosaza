@@ -17,11 +17,12 @@ from urllib.parse import unquote, urlparse
 import cv2
 
 
-ROOT = Path(__file__).resolve().parent
-PROJECT_ROOT = ROOT.parent
+ROOT = Path(os.environ.get("WEB_APP_ROOT", Path(__file__).resolve().parent)).resolve()
+PROJECT_ROOT = Path(os.environ.get("RESOURCE_ROOT", ROOT.parent)).resolve()
+DATA_ROOT = Path(os.environ.get("APP_DATA_DIR", ROOT)).resolve()
 STATIC_DIR = ROOT / "static"
-UPLOAD_DIR = ROOT / "uploads"
-OUTPUT_DIR = ROOT / "outputs"
+UPLOAD_DIR = DATA_ROOT / "uploads"
+OUTPUT_DIR = DATA_ROOT / "outputs"
 MARGIN_RIGHT = 80
 MARGIN_TOP = 52
 AUTO_CROP_REFERENCE_TOP = 112
@@ -385,6 +386,9 @@ class VideoDateHandler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path = unquote(urlparse(self.path).path)
+        if path == "/health":
+            json_response(self, {"ok": True})
+            return
         if path == "/":
             read_file_response(self, STATIC_DIR / "index.html")
             return
