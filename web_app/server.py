@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import os
 import re
 import subprocess
 import shutil
+import tempfile
 import threading
 import uuid
 from datetime import datetime
@@ -41,6 +43,10 @@ def json_response(handler: BaseHTTPRequestHandler, payload: dict, status: int = 
     handler.wfile.write(body)
 
 
+def is_vercel() -> bool:
+    return bool(os.environ.get("VERCEL"))
+
+
 def read_file_response(handler: BaseHTTPRequestHandler, path: Path, download_name: str | None = None) -> None:
     if not path.exists() or not path.is_file():
         handler.send_error(404)
@@ -52,6 +58,21 @@ def read_file_response(handler: BaseHTTPRequestHandler, path: Path, download_nam
     handler.send_header("Content-Length", str(path.stat().st_size))
     if download_name:
         handler.send_header("Content-Disposition", f'attachment; filename="{download_name}"')
+    handler.end_headers()
+    with path.open("rb") as src:
+        shutil.copyfileobj(src, handler.wfile)
+
+
+def video_response(handler: BaseHTTPRequestHandler, path: Path, download_name: str) -> None:
+    if not path.exists() or not path.is_file():
+        json_response(handler, {"ok": False, "error": "Готовый файл не найден"}, status=500)
+        return
+
+    handler.send_response(200)
+    handler.send_header("Content-Type", "video/mp4")
+    handler.send_header("Content-Length", str(path.stat().st_size))
+    handler.send_header("Content-Disposition", f'attachment; filename="{download_name}"')
+    handler.send_header("X-Filename", download_name)
     handler.end_headers()
     with path.open("rb") as src:
         shutil.copyfileobj(src, handler.wfile)
@@ -397,9 +418,18 @@ class VideoDateHandler(BaseHTTPRequestHandler):
             remove_audio = fields.get("removeAudio", "0") == "1"
 
             job_id = uuid.uuid4().hex[:12]
-            input_path = UPLOAD_DIR / f"{job_id}{suffix}"
-            output_path = OUTPUT_DIR / f"ready-{job_id}.mp4"
+            work_dir = Path(tempfile.gettempdir()) if is_vercel() else UPLOAD_DIR
+            out_dir = Path(tempfile.gettempdir()) if is_vercel() else OUTPUT_DIR
+            input_path = work_dir / f"{job_id}{suffix}"
+            output_path = out_dir / f"ready-{job_id}.mp4"
             input_path.write_bytes(data)
+
+            if is_vercel():
+                process_video(input_path, output_path, date_text, start_time, remove_audio, job_id)
+                video_response(self, output_path, output_path.name)
+                input_path.unlink(missing_ok=True)
+                output_path.unlink(missing_ok=True)
+                return
 
             JOBS[job_id] = {
                 "status": "queued",

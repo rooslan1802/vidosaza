@@ -121,12 +121,22 @@ form.addEventListener("submit", async (event) => {
   submitButton.disabled = true;
   generationPanel.hidden = false;
   resultPanel.hidden = true;
-  setProgress(0, "Загружаю видео на компьютер...");
+  setProgress(0, "Загружаю видео на сервер...");
   setStatus("Генерация запущена...");
 
   try {
     const payload = await uploadJob(data);
     if (!payload.ok) throw new Error(payload.error || "Ошибка загрузки");
+    if (payload.outputBlobUrl) {
+      resultVideo.src = payload.outputBlobUrl;
+      downloadLink.href = payload.outputBlobUrl;
+      downloadLink.download = payload.filename || "ready-video.mp4";
+      resultPanel.hidden = false;
+      generationPanel.hidden = true;
+      setProgress(100, "Готово");
+      setStatus("Готово. Видео обработано.");
+      return;
+    }
     await watchJob(payload.jobId);
   } catch (error) {
     setStatus(error.message, true);
@@ -140,20 +150,51 @@ function uploadJob(data) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/process");
+    xhr.responseType = "blob";
     xhr.upload.addEventListener("progress", (event) => {
       if (!event.lengthComputable) return;
-      setProgress((event.loaded / event.total) * 10, "Загружаю видео на компьютер...");
+      setProgress((event.loaded / event.total) * 10, "Загружаю видео на сервер...");
     });
-    xhr.addEventListener("load", () => {
+    xhr.addEventListener("load", async () => {
+      const contentType = xhr.getResponseHeader("Content-Type") || "";
+      if (!xhr.status || xhr.status >= 400) {
+        const text = xhr.response ? await xhr.response.text() : "";
+        reject(new Error(readServerError(text, xhr.status)));
+        return;
+      }
+
+      if (contentType.includes("video/mp4")) {
+        const blobUrl = URL.createObjectURL(xhr.response);
+        resolve({
+          ok: true,
+          outputBlobUrl: blobUrl,
+          filename: xhr.getResponseHeader("X-Filename") || "ready-video.mp4",
+        });
+        return;
+      }
+
       try {
-        resolve(JSON.parse(xhr.responseText));
+        const text = xhr.response ? await xhr.response.text() : "";
+        resolve(JSON.parse(text));
       } catch (error) {
-        reject(new Error("Сервер вернул непонятный ответ"));
+        reject(new Error("Сервер вернул непонятный ответ. Возможно, Vercel прервал обработку по лимиту времени или размера файла."));
       }
     });
     xhr.addEventListener("error", () => reject(new Error("Не удалось загрузить видео")));
     xhr.send(data);
   });
+}
+
+function readServerError(text, status) {
+  try {
+    const payload = JSON.parse(text);
+    if (payload.error) return payload.error;
+  } catch (error) {
+    // Keep the readable fallback below.
+  }
+  if (status === 413) return "Видео слишком большое для Vercel.";
+  if (status === 504 || status === 500) return "Vercel не успел обработать видео. Попробуйте короткий файл или локальный сервер.";
+  return `Ошибка сервера ${status}.`;
 }
 
 async function watchJob(jobId) {
