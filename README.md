@@ -17,6 +17,25 @@ Open:
 http://localhost:8000
 ```
 
+## Desktop App on macOS
+
+Run the desktop app during development:
+
+```bash
+npm install
+npm start
+```
+
+Build a macOS app:
+
+```bash
+pip install -r requirements.txt
+npm run build:backend
+npm run dist:mac
+```
+
+Build artifacts will be created in `release/`.
+
 ## Fast Production Deploy
 
 For real video processing, use a VPS or container host instead of Vercel.

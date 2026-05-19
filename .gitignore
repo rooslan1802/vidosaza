@@ -22,3 +22,9 @@ output_videos/
 *.docx
 
 .vercel/
+
+node_modules/
+release/
+dist/
+build/
+npm-debug.log*

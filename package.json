@@ -1,0 +1,59 @@
+{
+  "name": "video-date-overlay",
+  "version": "1.0.0",
+  "description": "Desktop app for adding date and time overlay to camera videos.",
+  "main": "desktop/main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:backend": "venv/bin/pyinstaller --name video-date-backend --onefile --paths . web_app/server.py",
+    "dist:mac": "electron-builder --mac",
+    "dist:win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.vidosaza.video-date-overlay",
+    "productName": "Video Date Overlay",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "desktop/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "web_app",
+        "to": "web_app",
+        "filter": [
+          "**/*",
+          "!__pycache__/**",
+          "!uploads/**",
+          "!outputs/**"
+        ]
+      },
+      {
+        "from": "fonts",
+        "to": "fonts"
+      },
+      {
+        "from": "dist/video-date-backend",
+        "to": "backend/video-date-backend"
+      }
+    ],
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.video"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8"
+  }
+}
