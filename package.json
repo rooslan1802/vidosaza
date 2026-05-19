@@ -5,7 +5,7 @@
   "main": "desktop/main.js",
   "scripts": {
     "start": "electron .",
-    "build:backend": "venv/bin/pyinstaller --name video-date-backend --onefile --paths . web_app/server.py",
+    "build:backend": "venv/bin/pyinstaller --name video-date-backend --onedir --paths . web_app/server.py",
     "dist:mac": "electron-builder --mac",
     "dist:win": "electron-builder --win"
   },
@@ -40,6 +40,7 @@
       }
     ],
     "mac": {
+      "icon": "build-assets/icon.icns",
       "target": [
         "dmg",
         "zip"

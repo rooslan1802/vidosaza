@@ -1,5 +1,5 @@
 const { app, BrowserWindow, dialog } = require("electron");
-const { spawn } = require("child_process");
+const { execFile, spawn } = require("child_process");
 const fs = require("fs");
 const net = require("net");
 const path = require("path");
@@ -31,7 +31,9 @@ function findPython() {
 function findBackendBinary() {
   const binaryName = process.platform === "win32" ? "video-date-backend.exe" : "video-date-backend";
   const candidates = [
+    resourcePath("backend", "video-date-backend", binaryName),
     resourcePath("backend", binaryName),
+    path.join(__dirname, "..", "dist", "video-date-backend", binaryName),
     path.join(__dirname, "..", "dist", binaryName),
   ];
   return candidates.find((candidate) => fs.existsSync(candidate));
@@ -48,7 +50,7 @@ function getFreePort() {
   });
 }
 
-function waitForServer(url, timeoutMs = 20000) {
+function waitForServer(url, timeoutMs = 90000) {
   const started = Date.now();
   return new Promise((resolve, reject) => {
     const tryOnce = () => {
@@ -63,6 +65,27 @@ function waitForServer(url, timeoutMs = 20000) {
         });
     };
     tryOnce();
+  });
+}
+
+function killProcessTree(pid) {
+  if (!pid) return;
+  if (process.platform === "win32") {
+    execFile("taskkill", ["/pid", String(pid), "/T", "/F"], () => {});
+    return;
+  }
+  execFile("pgrep", ["-P", String(pid)], (error, stdout) => {
+    if (!error && stdout.trim()) {
+      stdout
+        .trim()
+        .split(/\s+/)
+        .forEach((childPid) => killProcessTree(Number(childPid)));
+    }
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch (killError) {
+      // Already closed.
+    }
   });
 }
 
@@ -96,7 +119,6 @@ async function startBackend() {
 }
 
 async function createWindow() {
-  const url = await startBackend();
   mainWindow = new BrowserWindow({
     width: 1120,
     height: 840,
@@ -109,6 +131,17 @@ async function createWindow() {
     },
   });
 
+  await mainWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(`
+    <style>
+      body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0d1112; color: #f4f7f4; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      main { text-align: center; }
+      .mark { width: 72px; height: 72px; margin: 0 auto 18px; border-radius: 18px; background: linear-gradient(135deg, #56d7a3, #f3c969); display: grid; place-items: center; color: #07120e; font-size: 46px; font-weight: 900; }
+      p { margin: 0; color: #a5b0ad; }
+    </style>
+    <main><div class="mark">V</div><p>Запускаю обработчик видео...</p></main>
+  `)}`);
+
+  const url = await startBackend();
   await mainWindow.loadURL(url);
 }
 
@@ -124,7 +157,5 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", () => {
-  if (backend && !backend.killed) {
-    backend.kill();
-  }
+  if (backend && !backend.killed) killProcessTree(backend.pid);
 });
